@@ -221,7 +221,6 @@ Os valores foram ajustados manualmente no DHT22 do Wokwi. Como o estado usa a m�
 ```
 .
 ├── README.md               ← este documento
-├── PROMPTS.md              ← prompts de IA generativa utilizados
 ├── integrantes.txt         ← nomes e RMs
 ├── esp32/
 │   ├── sketch.ino          ← código-fonte do ESP32
