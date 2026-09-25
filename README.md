@@ -19,8 +19,11 @@ Um protótipo com **ESP32** que monitora a **temperatura e a umidade** dos espa�
 
 | Nome completo | RM |
 |---|---|
-| _Nome do integrante_ | _RM00000_ |
-| _Nome do integrante_ | _RM00000_ |
+| HEITOR ANACLETO ARAÚJO | RM573599 |
+| MATHEUS HENRIQUE PEDERSEN GUERRA | RM571197 |
+| ISAAC ISRAEL ROSA COIMBRA | RM570072 |
+| HENRIQUE NUNES MORORÓ | RM574073 |
+| BERNARDO RODRIGUES DE PAULA | RM572376 |
 
 ---
 
