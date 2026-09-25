@@ -1,26 +1,3 @@
-/*
- * ============================================================================
- *  PELÉ ACADEMIA — Monitor Ambiental de Treino (Edge Computing)
- *  FIAP · Engenharia de Software · Challenge 2026 · Sprint 3 · ECCS
- * ============================================================================
- *
- *  O ESP32 lê temperatura e umidade (DHT22) do local de treino e, NA BORDA:
- *    1. valida cada leitura (descarta falhas e valores fora da faixa do sensor);
- *    2. guarda as últimas N leituras num buffer circular;
- *    3. calcula média móvel, mínimo e máximo;
- *    4. calcula o índice de calor (sensação térmica) e o IBUTG/WBGT estimado,
- *       indicador usado no esporte para avaliar o risco de estresse térmico;
- *    5. calcula a tendência da temperatura (°C/min) por regressão linear;
- *    6. conta as leituras que ultrapassaram os limites configurados;
- *    7. classifica o ambiente em NORMAL / ATENCAO / ALERTA / CRITICO;
- *    8. mostra tudo na IHM local (OLED + LEDs de sinalização + botão).
- *
- *  Só DEPOIS disso os dados (já processados) vão para o ThingSpeak, que fica
- *  responsável pelo armazenamento, histórico, gráficos e acesso remoto.
- *  Se o Wi-Fi ou a nuvem caírem, o monitoramento local continua funcionando.
- * ============================================================================
- */
-
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Wire.h>
@@ -29,57 +6,39 @@
 #include <DHT.h>
 #include <math.h>
 
-// ----------------------------------------------------------------------------
-//  Configuração de rede e nuvem
-// ----------------------------------------------------------------------------
-const char* WIFI_SSID  = "Wokwi-GUEST";   // rede aberta do simulador Wokwi
+const char* WIFI_SSID  = "Wokwi-GUEST";
 const char* WIFI_SENHA = "";
-const int   WIFI_CANAL = 6;               // canal do Wokwi-GUEST (acelera a conexão)
+const int   WIFI_CANAL = 6;
 
-// Write API Key do canal ThingSpeak (Channels > API Keys)
 const char* TS_WRITE_API_KEY = "1QA5UAK2ICPLZFUK";
 const char* TS_URL           = "http://api.thingspeak.com/update";
 
-// ----------------------------------------------------------------------------
-//  Pinos
-// ----------------------------------------------------------------------------
 #define PINO_DHT          15
 #define TIPO_DHT          DHT22
 #define PINO_LED_VERDE    25
 #define PINO_LED_AMARELO  26
 #define PINO_LED_VERMELHO 27
-#define PINO_BOTAO        4     // troca a tela da IHM (INPUT_PULLUP)
-// OLED SSD1306 no barramento I2C padrão: SDA = GPIO21, SCL = GPIO22
+#define PINO_BOTAO        4
 
-// ----------------------------------------------------------------------------
-//  Display
-// ----------------------------------------------------------------------------
 #define OLED_LARGURA  128
 #define OLED_ALTURA   64
 #define OLED_ENDERECO 0x3C
 
-// ----------------------------------------------------------------------------
-//  Temporização (tudo com millis(), sem delay() no loop)
-// ----------------------------------------------------------------------------
-const unsigned long INTERVALO_LEITURA_MS   = 2000;   // DHT22 aceita 1 leitura a cada 2 s
-const unsigned long INTERVALO_ENVIO_MS     = 20000;  // ThingSpeak gratuito: mínimo 15 s
-const unsigned long INTERVALO_TELA_MS      = 6000;   // rotação automática das telas
-const unsigned long INTERVALO_WIFI_MS      = 10000;  // nova tentativa de conexão
-const unsigned long INTERVALO_PISCA_MS     = 250;    // pisca do LED em estado crítico
+const unsigned long INTERVALO_LEITURA_MS   = 2000;
+const unsigned long INTERVALO_ENVIO_MS     = 20000;
+const unsigned long INTERVALO_TELA_MS      = 6000;
+const unsigned long INTERVALO_WIFI_MS      = 10000;
+const unsigned long INTERVALO_PISCA_MS     = 250;
 const unsigned long DEBOUNCE_MS            = 200;
 
-// ----------------------------------------------------------------------------
-//  Processamento local
-// ----------------------------------------------------------------------------
-const int N_AMOSTRAS = 10;   // janela da média móvel (10 x 2 s = últimos 20 s)
+const int N_AMOSTRAS = 10;
 
-// Limites de referência (ver README, seção "Critérios de atenção")
-const float WBGT_ATENCAO  = 25.0;  // °C: pausas para hidratação
-const float WBGT_ALERTA   = 28.0;  // °C: reduzir intensidade / volume do treino
-const float WBGT_CRITICO  = 32.0;  // °C: suspender ou adiar atividade intensa
-const float TEMP_LIMITE   = 32.0;  // °C: temperatura do ar elevada
-const float UMID_MAX      = 80.0;  // %: dificulta a evaporação do suor
-const float UMID_MIN      = 30.0;  // %: ar seco, desidratação e desconforto respiratório
+const float WBGT_ATENCAO  = 25.0;
+const float WBGT_ALERTA   = 28.0;
+const float WBGT_CRITICO  = 32.0;
+const float TEMP_LIMITE   = 32.0;
+const float UMID_MAX      = 80.0;
+const float UMID_MIN      = 30.0;
 
 enum Estado { NORMAL = 0, ATENCAO = 1, ALERTA = 2, CRITICO = 3, ERRO_SENSOR = 4 };
 const char* NOME_ESTADO[] = { "NORMAL", "ATENCAO", "ALERTA", "CRITICO", "ERRO SENSOR" };
@@ -91,41 +50,33 @@ const char* RECOMENDACAO[] = {
   "Verificar sensor"
 };
 
-// ----------------------------------------------------------------------------
-//  Objetos e variáveis globais
-// ----------------------------------------------------------------------------
 DHT dht(PINO_DHT, TIPO_DHT);
 Adafruit_SSD1306 display(OLED_LARGURA, OLED_ALTURA, &Wire, -1);
 
-// Buffer circular com as últimas leituras válidas
 float         bufTemp[N_AMOSTRAS];
 float         bufUmid[N_AMOSTRAS];
 unsigned long bufTempo[N_AMOSTRAS];
 int           bufIndice = 0;
 int           bufQtd    = 0;
 
-// Última leitura bruta
 float tempAtual = NAN;
 float umidAtual = NAN;
 
-// Resultados do processamento local
 struct Indicadores {
   float  tempMedia, umidMedia;
   float  tempMin, tempMax;
-  float  indiceCalor;      // °C (sensação térmica, NOAA)
-  float  wbgt;             // °C (IBUTG estimado)
-  float  tendencia;        // °C por minuto
-  int    excedencias;      // leituras na janela fora dos limites
+  float  indiceCalor;
+  float  wbgt;
+  float  tendencia;
+  int    excedencias;
   Estado estado;
 } ind;
 
 int falhasSensorSeguidas = 0;
 
-// Estatísticas da nuvem
 unsigned long enviosOk = 0, enviosFalha = 0;
 unsigned long ultimoEnvioOk = 0;
 
-// Controle de tempo
 unsigned long tUltimaLeitura = 0, tUltimoEnvio = 0, tUltimaTela = 0;
 unsigned long tUltimaTentativaWifi = 0, tUltimoPisca = 0, tUltimoBotao = 0;
 bool estadoPisca = false;
@@ -134,31 +85,23 @@ const int TOTAL_TELAS = 4;
 bool botaoAnterior = HIGH;
 bool displayOk = false;
 
-// ============================================================================
-//  PROCESSAMENTO NA BORDA
-// ============================================================================
-
-// Pressão de vapor (hPa) a partir de temperatura e umidade relativa (Magnus)
 float pressaoVapor(float t, float ur) {
   return (ur / 100.0) * 6.105 * exp((17.27 * t) / (237.7 + t));
 }
 
-// WBGT/IBUTG estimado para ambiente sombreado (fórmula do Australian Bureau
-// of Meteorology). Não considera radiação solar direta nem vento.
 float calcularWBGT(float t, float ur) {
   return 0.567 * t + 0.393 * pressaoVapor(t, ur) + 3.94;
 }
 
-// Inclinação da reta (mínimos quadrados) da temperatura em função do tempo
 float calcularTendencia() {
   if (bufQtd < 3) return 0;
-  // Índice da amostra mais antiga dentro do buffer circular
+
   int inicio = (bufQtd < N_AMOSTRAS) ? 0 : bufIndice;
   unsigned long t0 = bufTempo[inicio];
   float sx = 0, sy = 0, sxy = 0, sxx = 0;
   for (int i = 0; i < bufQtd; i++) {
     int k = (inicio + i) % N_AMOSTRAS;
-    float x = (bufTempo[k] - t0) / 60000.0;   // minutos
+    float x = (bufTempo[k] - t0) / 60000.0;
     float y = bufTemp[k];
     sx += x; sy += y; sxy += x * y; sxx += x * x;
   }
@@ -204,8 +147,6 @@ void processarLeituras() {
   ind.wbgt        = calcularWBGT(ind.tempMedia, ind.umidMedia);
   ind.tendencia   = calcularTendencia();
 
-  // A classificação usa a MÉDIA, e não a leitura instantânea, para evitar que
-  // um pico isolado (ruído) mude o estado do ambiente.
   Estado e = classificarPorWBGT(ind.wbgt);
   bool foraDosLimites = ind.tempMedia > TEMP_LIMITE ||
                         ind.umidMedia > UMID_MAX ||
@@ -218,7 +159,6 @@ void lerSensor() {
   float t  = dht.readTemperature();
   float ur = dht.readHumidity();
 
-  // Validação: falha de leitura ou valor fora da faixa física do DHT22
   bool valida = !isnan(t) && !isnan(ur) && t >= -40 && t <= 80 && ur >= 0 && ur <= 100;
   if (!valida) {
     falhasSensorSeguidas++;
@@ -239,10 +179,6 @@ void lerSensor() {
                 ind.tendencia, ind.excedencias, bufQtd, NOME_ESTADO[ind.estado]);
 }
 
-// ============================================================================
-//  IHM LOCAL — LEDs
-// ============================================================================
-
 void atualizarLeds() {
   if (millis() - tUltimoPisca >= INTERVALO_PISCA_MS) {
     tUltimoPisca = millis();
@@ -253,24 +189,20 @@ void atualizarLeds() {
     case NORMAL:      verde = true;            break;
     case ATENCAO:     amarelo = true;          break;
     case ALERTA:      vermelho = true;         break;
-    case CRITICO:     vermelho = estadoPisca;  break;   // vermelho piscando
-    case ERRO_SENSOR: amarelo = estadoPisca;   break;   // amarelo piscando
+    case CRITICO:     vermelho = estadoPisca;  break;
+    case ERRO_SENSOR: amarelo = estadoPisca;   break;
   }
   digitalWrite(PINO_LED_VERDE, verde);
   digitalWrite(PINO_LED_AMARELO, amarelo);
   digitalWrite(PINO_LED_VERMELHO, vermelho);
 }
 
-// ============================================================================
-//  IHM LOCAL — Display OLED (4 telas)
-// ============================================================================
-
 void desenharCabecalho(const char* titulo) {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.print(titulo);
-  // Indicadores de conectividade no canto direito
+
   display.setCursor(104, 0);
   display.print(WiFi.status() == WL_CONNECTED ? "W" : "-");
   display.print((ultimoEnvioOk && millis() - ultimoEnvioOk < 60000) ? "C" : "-");
@@ -280,7 +212,7 @@ void desenharCabecalho(const char* titulo) {
 }
 
 void desenharFaixaEstado() {
-  // Faixa invertida na parte de baixo com o estado atual
+
   display.fillRect(0, 54, OLED_LARGURA, 10, SSD1306_WHITE);
   display.setTextColor(SSD1306_BLACK);
   display.setTextSize(1);
@@ -381,14 +313,10 @@ void verificarBotao() {
   if (leitura == LOW && botaoAnterior == HIGH && millis() - tUltimoBotao > DEBOUNCE_MS) {
     tUltimoBotao = millis();
     telaAtual = (telaAtual + 1) % TOTAL_TELAS;
-    tUltimaTela = millis();   // reinicia a rotação automática
+    tUltimaTela = millis();
   }
   botaoAnterior = leitura;
 }
-
-// ============================================================================
-//  CONECTIVIDADE — Wi-Fi e ThingSpeak
-// ============================================================================
 
 void conectarWifi() {
   Serial.printf("[WIFI] Conectando a %s...\r\n", WIFI_SSID);
@@ -397,7 +325,6 @@ void conectarWifi() {
   tUltimaTentativaWifi = millis();
 }
 
-// Reconexão não bloqueante: o loop continua lendo o sensor enquanto isso
 void manterWifi() {
   static bool estavaConectado = false;
   bool conectado = WiFi.status() == WL_CONNECTED;
@@ -432,19 +359,18 @@ void enviarThingSpeak() {
     return;
   }
 
-  // Mensagem de status: aparece no canal junto de cada registro
   String status = String(NOME_ESTADO[ind.estado]) + " | " + RECOMENDACAO[ind.estado] +
                   " | exced " + ind.excedencias + "/" + bufQtd;
 
   String url = String(TS_URL) + "?api_key=" + TS_WRITE_API_KEY +
-               "&field1=" + String(tempAtual, 1) +       // temperatura instantânea
-               "&field2=" + String(umidAtual, 1) +       // umidade instantânea
-               "&field3=" + String(ind.tempMedia, 2) +   // temperatura média (borda)
-               "&field4=" + String(ind.umidMedia, 2) +   // umidade média (borda)
-               "&field5=" + String(ind.indiceCalor, 2) + // índice de calor (borda)
-               "&field6=" + String(ind.wbgt, 2) +        // WBGT estimado (borda)
-               "&field7=" + String((int)ind.estado) +    // estado 0..3 (borda)
-               "&field8=" + String(ind.excedencias) +    // leituras fora do limite (borda)
+               "&field1=" + String(tempAtual, 1) +
+               "&field2=" + String(umidAtual, 1) +
+               "&field3=" + String(ind.tempMedia, 2) +
+               "&field4=" + String(ind.umidMedia, 2) +
+               "&field5=" + String(ind.indiceCalor, 2) +
+               "&field6=" + String(ind.wbgt, 2) +
+               "&field7=" + String((int)ind.estado) +
+               "&field8=" + String(ind.excedencias) +
                "&status=" + codificarUrl(status);
 
   HTTPClient http;
@@ -454,7 +380,6 @@ void enviarThingSpeak() {
   String resposta = http.getString();
   http.end();
 
-  // O ThingSpeak devolve o número do registro criado, ou "0" se recusou
   if (codigo == 200 && resposta.toInt() > 0) {
     enviosOk++;
     ultimoEnvioOk = millis();
@@ -464,10 +389,6 @@ void enviarThingSpeak() {
     Serial.printf("[NUVEM] Falha no envio (HTTP %d, resposta '%s')\r\n", codigo, resposta.c_str());
   }
 }
-
-// ============================================================================
-//  SETUP / LOOP
-// ============================================================================
 
 void setup() {
   Serial.begin(115200);
@@ -497,7 +418,6 @@ void setup() {
     display.display();
   }
 
-  // Teste rápido dos LEDs na inicialização
   digitalWrite(PINO_LED_VERDE, HIGH);
   digitalWrite(PINO_LED_AMARELO, HIGH);
   digitalWrite(PINO_LED_VERMELHO, HIGH);
