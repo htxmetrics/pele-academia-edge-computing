@@ -1,0 +1,5 @@
+# Bibliotecas usadas pelo projeto no Wokwi (Library Manager)
+DHT sensor library
+Adafruit Unified Sensor
+Adafruit GFX Library
+Adafruit SSD1306
