@@ -13,7 +13,7 @@ Um protótipo com **ESP32** que monitora a **temperatura e a umidade** dos espa�
 |---|---|
 | Repositório GitHub (este) | <https://github.com/htxmetrics/pele-academia-edge-computing> |
 | Projeto no Wokwi | <https://wokwi.com/projects/476150732716968961> |
-| Canal público no ThingSpeak | <https://thingspeak.mathworks.com/channels/3458232> |
+| Canal público no ThingSpeak | <https://thingspeak.mathworks.com/channels/3509573> |
 
 ## 👥 Integrantes
 

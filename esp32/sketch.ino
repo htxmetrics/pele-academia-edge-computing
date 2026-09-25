@@ -37,7 +37,7 @@ const char* WIFI_SENHA = "";
 const int   WIFI_CANAL = 6;               // canal do Wokwi-GUEST (acelera a conexão)
 
 // Write API Key do canal ThingSpeak (Channels > API Keys)
-const char* TS_WRITE_API_KEY = "DNA08718FLA6DQW8";
+const char* TS_WRITE_API_KEY = "1QA5UAK2ICPLZFUK";
 const char* TS_URL           = "http://api.thingspeak.com/update";
 
 // ----------------------------------------------------------------------------
