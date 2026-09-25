@@ -9,7 +9,7 @@
       "id": "dht1",
       "top": -115.5,
       "left": -140.8,
-      "attrs": { "temperature": "26", "humidity": "60" }
+      "attrs": { "temperature": "24", "humidity": "50" }
     },
     { "type": "board-ssd1306", "id": "oled1", "top": -102.46, "left": 144.23, "attrs": { "i2cAddress": "0x3c" } },
     { "type": "wokwi-led", "id": "led_verde", "top": 140, "left": 220, "attrs": { "color": "green" } },

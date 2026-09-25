@@ -234,7 +234,7 @@ void lerSensor() {
   processarLeituras();
 
   Serial.printf("[BORDA] T=%.1fC UR=%.0f%% | media T=%.1fC UR=%.0f%% | IC=%.1fC WBGT=%.1fC | "
-                "tend=%+.2fC/min | exced=%d/%d | %s\n",
+                "tend=%+.2fC/min | exced=%d/%d | %s\r\n",
                 t, ur, ind.tempMedia, ind.umidMedia, ind.indiceCalor, ind.wbgt,
                 ind.tendencia, ind.excedencias, bufQtd, NOME_ESTADO[ind.estado]);
 }
@@ -391,7 +391,7 @@ void verificarBotao() {
 // ============================================================================
 
 void conectarWifi() {
-  Serial.printf("[WIFI] Conectando a %s...\n", WIFI_SSID);
+  Serial.printf("[WIFI] Conectando a %s...\r\n", WIFI_SSID);
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_SENHA, WIFI_CANAL);
   tUltimaTentativaWifi = millis();
@@ -458,10 +458,10 @@ void enviarThingSpeak() {
   if (codigo == 200 && resposta.toInt() > 0) {
     enviosOk++;
     ultimoEnvioOk = millis();
-    Serial.printf("[NUVEM] Enviado ao ThingSpeak — registro #%s\n", resposta.c_str());
+    Serial.printf("[NUVEM] Enviado ao ThingSpeak — registro #%s\r\n", resposta.c_str());
   } else {
     enviosFalha++;
-    Serial.printf("[NUVEM] Falha no envio (HTTP %d, resposta '%s')\n", codigo, resposta.c_str());
+    Serial.printf("[NUVEM] Falha no envio (HTTP %d, resposta '%s')\r\n", codigo, resposta.c_str());
   }
 }
 
