@@ -88,8 +88,7 @@ Esse é o ponto central do projeto. **Tudo o que precisa de resposta imediata ac
 | LED vermelho + resistor 220 Ω | ALERTA (aceso) / CRÍTICO (piscando) | **GPIO27** |
 | Botão (push button) | Troca a tela do OLED | **GPIO4** (pull-up interno) → GND |
 
-<!-- Coloque aqui um print do circuito no Wokwi: -->
-<!-- ![Circuito no Wokwi](docs/img/circuito-wokwi.png) -->
+![Circuito em funcionamento no Wokwi (estado NORMAL)](docs/img/01-normal.webp)
 
 ## 5. Processamento local em detalhe
 
@@ -146,7 +145,7 @@ O OLED alterna automaticamente entre **4 telas** a cada 6 s. O **botão** avanç
 
 Os **LEDs** funcionam como um semáforo visível de longe pelo treinador, e o **Monitor Serial** registra cada ciclo de leitura e envio (útil para depuração e para a apresentação).
 
-<!-- ![IHM no Wokwi](docs/img/ihm-oled.png) -->
+![Painel de ajuste do DHT22 e tela de médias locais do OLED](docs/img/05-ajuste-sensor-medias.webp)
 
 ## 7. Nuvem: canal ThingSpeak
 
@@ -166,7 +165,6 @@ A cada **20 s** (o plano gratuito aceita no mínimo 15 s entre envios) o ESP32 f
 
 O passo a passo para criar e configurar o canal (campos, gráficos, indicadores e visualização pública) está em **[docs/thingspeak.md](docs/thingspeak.md)**.
 
-<!-- ![Canal ThingSpeak](docs/img/thingspeak-canal.png) -->
 
 ## 8. Como executar no Wokwi
 
@@ -193,14 +191,24 @@ Os valores foram ajustados manualmente no DHT22 do Wokwi. Como o estado usa a m�
 
 | # | Cenário simulado | T (°C) | UR (%) | WBGT est. (°C) | Estado esperado | LED |
 |---|---|---|---|---|---|---|
-| 1 | Manhã amena, campo sombreado | 22 | 55 | ≈ 22,1 | NORMAL | 🟢 |
+| 1 | Manhã amena, campo sombreado | 24 | 50 | ≈ 23,4 | NORMAL | 🟢 |
 | 2 | Ginásio morno durante o treino | 27 | 50 | ≈ 26,2 | ATENÇÃO | 🟡 |
 | 3 | Tarde quente e seca | 33 | 40 | ≈ 30,5 | ALERTA | 🔴 |
 | 4 | Onda de calor carioca (abafado) | 34 | 70 | ≈ 37,8 | CRÍTICO | 🔴 piscando |
 | 5 | Inverno seco, manhã | 20 | 25 | ≈ 17,6 | ATENÇÃO (UR < 30 %) | 🟡 |
 | 6 | Wi-Fi indisponível | qualquer | qualquer | — | Leitura, OLED e LEDs continuam; envio suspenso | — |
 
-<!-- Coloque prints de cada cenário em docs/img/ e referencie aqui -->
+**Resultados obtidos na simulação:**
+
+| NORMAL (24 °C / 50 %) | ATENÇÃO (27 °C / 50 %) |
+|---|---|
+| ![NORMAL](docs/img/01-normal.webp) | ![ATENÇÃO](docs/img/02-atencao.webp) |
+| **ALERTA (33 °C / 40 %)** | **CRÍTICO (34 °C / 70 %)** |
+| ![ALERTA](docs/img/03-alerta.webp) | ![CRÍTICO](docs/img/04-critico.webp) |
+
+**Funcionamento sem internet (cenário 6):** com a conexão indisponível, o terminal registra `Falha no envio` e a tela NUVEM/REDE mostra as falhas, mas o ESP32 continua lendo o sensor, calculando as médias e o WBGT, classificando o ambiente e atualizando o OLED e os LEDs.
+
+![Modo offline: processamento local continua sem nuvem](docs/img/06-modo-offline.webp)
 
 ## 10. Relação dos resultados com os ambientes de treino
 
