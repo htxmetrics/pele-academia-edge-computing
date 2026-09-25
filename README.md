@@ -145,7 +145,6 @@ O OLED alterna automaticamente entre **4 telas** a cada 6 s. O **botão** avanç
 
 Os **LEDs** funcionam como um semáforo visível de longe pelo treinador, e o **Monitor Serial** registra cada ciclo de leitura e envio (útil para depuração e para a apresentação).
 
-![Painel de ajuste do DHT22 e tela de médias locais do OLED](docs/img/05-ajuste-sensor-medias.webp)
 
 ## 7. Nuvem: canal ThingSpeak
 
@@ -207,8 +206,6 @@ Os valores foram ajustados manualmente no DHT22 do Wokwi. Como o estado usa a m�
 | ![ALERTA](docs/img/03-alerta.webp) | ![CRÍTICO](docs/img/04-critico.webp) |
 
 **Funcionamento sem internet (cenário 6):** com a conexão indisponível, o terminal registra `Falha no envio` e a tela NUVEM/REDE mostra as falhas, mas o ESP32 continua lendo o sensor, calculando as médias e o WBGT, classificando o ambiente e atualizando o OLED e os LEDs.
-
-![Modo offline: processamento local continua sem nuvem](docs/img/06-modo-offline.webp)
 
 ## 10. Relação dos resultados com os ambientes de treino
 
