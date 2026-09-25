@@ -177,6 +177,14 @@ O passo a passo para criar e configurar o canal (campos, gráficos, indicadores 
 5. Clique no **DHT22** durante a simulação e mova os controles de temperatura e umidade para testar os estados (veja a seção 9).
 6. Clique no **botão azul (TELA)** para navegar pelas telas do OLED.
 
+**Alternativa: simulação local (VS Code).** O projeto também pode ser compilado localmente e simulado com a extensão *Wokwi for VS Code*, sem depender da fila de compilação do site:
+
+```bash
+arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir esp32/build esp32
+```
+
+Depois, abra a pasta `esp32/` no VS Code, abra o `diagram.json` e execute **Wokwi: Start Simulator** (F1). O arquivo [`esp32/wokwi.toml`](esp32/wokwi.toml) aponta para o firmware gerado.
+
 > No Wokwi o ESP32 se conecta à rede `Wokwi-GUEST` (sem senha). Numa placa física, troque `WIFI_SSID` e `WIFI_SENHA` pela rede do local e remova o parâmetro de canal em `WiFi.begin()`.
 
 ## 9. Testes realizados (cenários de treino)

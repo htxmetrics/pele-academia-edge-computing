@@ -1,0 +1,6 @@
+# Configuração para simular localmente com a extensão "Wokwi for VS Code"
+# O firmware é gerado com: arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir build esp32
+[wokwi]
+version = 1
+firmware = 'build/sketch.ino.merged.bin'
+elf = 'build/sketch.ino.elf'
